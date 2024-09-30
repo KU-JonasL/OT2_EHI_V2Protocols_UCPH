@@ -39,10 +39,10 @@ def add_parameters(parameters):
     
     ## Off deck incubation
     parameters.add_bool(
-    variable_name = "on_deck_incubation",
-    display_name = "On-Deck Incubation",
-    description = "If true, Script performs an On-deck Incubation.",
-    default = False
+        variable_name = "on_deck_incubation",
+        display_name = "On-Deck Incubation",
+        description = "If true, Script performs an On-deck Incubation.",
+        default = False
     )
 
     ## On deck incubation time
@@ -52,7 +52,7 @@ def add_parameters(parameters):
         description = "Time for incubation of sample and bead mix (in minutes).",
         default = 15,
         minimum = 0,
-        maximum = 60
+        maximum = 120
     )
 
     ## Ethanol volume for wash
@@ -75,6 +75,22 @@ def add_parameters(parameters):
         maximum = 100
     )
 
+    # ## Elution On-Deck Incubation
+    # parameters.add_bool(
+    #     variable_name = "elution_incubation",
+    #     display_name = "On-Deck Elution Incubation",
+    #     description = "If True, the elution-sample mix is incubated on deck.",
+    #     default = False
+    # )
+
+    # ## Sustainability for high reuse of tip 
+    # parameters.add_bool(
+    #     variable_name = "sustainaility",
+    #     display_name = "Reduced number of Tips",
+    #     description = "reduced_tips",
+    #     default = False
+    # )
+
 
 
 
@@ -91,12 +107,10 @@ metadata = {
 def run(protocol: protocol_api.ProtocolContext):
     
     #### Loading Protocol Runtime Parameters ####
-    
     Col_Number = ceil(protocol.params.sample_count/8)
     On_Deck_Incubation = protocol.params.on_deck_incubation
     Incubation_Time = protocol.params.incubation_time
     Ethanol_Volume = protocol.params.ethanol_volume
-    Output_Format = protocol.params.plate_type
     Elution_Volume = protocol.params.elution_volume
     
     #### LABWARE SETUP ####
@@ -104,20 +118,14 @@ def run(protocol: protocol_api.ProtocolContext):
     magnet_module = protocol.load_module('magnetic module',4)
 
 
-    ## Input plate - OBS out deepwell plate is deeper.
+    ## Input plate - OBS our deepwell plate is deeper.
     Extraction_plate = magnet_module.load_labware('thermoscientificnunc_96_wellplate_1300ul') ## Input plate with sample
     
-
     ## Selecting output format - default is a PCR wellplate
-    if Output_Format == "PCRstrip":
-        Elution_plate = protocol.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul',10) # Output plate
-    elif Output_Format == "LVLSXS200":
-        Elution_plate = protocol.load_labware('LVLXSX200_wellplate_200ul',10) # Output plate
-    else:
-        Elution_plate = protocol.load_labware('biorad_96_wellplate_200ul_pcr',10) # Output plate
-
-
+    Elution_plate = protocol.load_labware('protocol.params.plate_type',10) ## Output plate; selected via runtime parameter
+   
     ## Deepwell reservoir & Liquid Inputs
+    ## Liquid labeling not added.
     reservoir = protocol.load_labware('deepwellreservoir_12channel_21000ul',1)
     Beads = reservoir['A1']
     Ethanol1 = reservoir['A3']
@@ -191,20 +199,20 @@ def run(protocol: protocol_api.ProtocolContext):
 
         m200.return_tip()
 
+
     ## Incuabtion of the extraction plate
-    
     if On_Deck_Incubation == True:
-        protocol.comment('STATUS: On deck bead-samples incubation begun. ')
+        protocol.comment("STATUS: On-Deck Bead-Sample incubation begun. Plate is incubating for "+ str(Incubation_Time) +"mins.")
         protocol.delay(minutes = Incubation_Time)
     elif On_Deck_Incubation == False:
-        protocol.pause("ACTION: Seal the Extraction plate. Spin it down. Incubate the plate: "+ str(Incubation_Time)+" mins, 10 C, 1500 rpm. Spin it down. Press RESUME, when the extraction plate has been returned (without seal) to the magnet module.")
+        protocol.pause("ACTION: Seal the Extraction plate. Spin it down. Incubate the plate: "+ str(Incubation_Time) +" mins, 10 C, 1500 rpm. Spin it down. Press RESUME, when the extraction plate has been returned (without seal) to the magnet module.")
 
 
     #### Beads Cleanup ####
-    ## Engaging Magnet. 2 mins wait for beads withdrawal
+    ## Engaging Magnet. 3 mins wait for beads withdrawal
     protocol.comment("STATUS: Engaging the Magnet")
     magnet_module.engage(height_from_base = 12)
-    protocol.delay(minutes = 2) ## Minimum of 60 seconds. Needs to be checked with actual DNA samples.
+    protocol.delay(minutes = 3)
 
     ## Discarding the Supernatant
     for i in range(Col_Number):
@@ -215,10 +223,10 @@ def run(protocol: protocol_api.ProtocolContext):
         m200.aspirate(volume = 200, location = Extraction_plate.wells()[Column].bottom(z = 3.4), rate = 0.7)
         m200.dispense(volume = 200, location = Waste1.top(z = 1), rate = 0.5) ## Extra dispense to blow out
         protocol.delay(seconds = 10) ## Droplets falling
-        m200.move_to(location = Waste1.top().move(types.Point(x = 0, y = -5, z = 2))) ## flicker motion??
+        m200.move_to(location = Waste1.top().move(types.Point(x = 0, y = -5, z = 2))) ## flicker motion
 
         ## Remove bead-supernatant 2
-        m200.aspirate(volume = 200, location = Extraction_plate.wells()[Column].bottom(z = 3.4), rate = 0.7)
+        m200.aspirate(volume = 200, location = Extraction_plate.wells()[Column].bottom(z = 3.4), rate = 0.5)
         m200.dispense(volume = 200, location = Waste2.top(), rate = 0.6)
         protocol.delay(seconds = 5) ## Droplets falling.
         m200.air_gap(volume = 20)
@@ -264,7 +272,7 @@ def run(protocol: protocol_api.ProtocolContext):
             m200.aspirate(volume = (Ethanol_Volume+10), location = Extraction_plate.wells()[Column].bottom(z = 3.4), rate = 0.4)
             m200.dispense(volume = (Ethanol_Volume+10), location = Waste.top(), rate = 0.7)
             m200.air_gap(volume = 70) ## Takes in excess, outside droplets to limit cross-contamination.
-            m200.return_tip()
+            m200.return_tip() ## Returns to box with 
 
 
     ## Drying beads (5 mins)
