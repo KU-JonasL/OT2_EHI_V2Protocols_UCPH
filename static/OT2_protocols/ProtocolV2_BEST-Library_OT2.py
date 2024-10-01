@@ -5,41 +5,38 @@
 ## Author Jonas Greve Lauritsen
 ## Adaptation of the BEST library build.
 
-##### User Data Input #####
-
 #### Package loading ####
 from opentrons import protocol_api
 import pandas as pd
 from math import *
-from io import StringIO
+
+#### User Input Parameters ###
+def add_parameters(parameters):
+
+    ## CSV file load
+    #SampleNumber;WellPosition;EXBarcode;SampleID;DNAconc;DNAul;Waterul;Adaptor;Notes
+    parameters.add_csv_file(
+        variable_name = "AdaptorConc",
+        display_name = "Adaptor Conc Input File",
+        description = "csv file with adaptor concentration information"
+    )
+
+    ## Input Format
+    parameters.add_str(
+        variable_name="input_plate_type",
+        display_name="Well plate type",
+        choices=[{"display_name": "Covaris Plate", "value": "96afatubetpxplate_96_wellplate_200ul"},
+        {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
+        default="96afatubetpxplate_96_wellplate_200ul"
+    )
 
 
-## User Input
-
-
-csv_userinput = 1# User Input here
-
-csv_userdata = 1# User Data here
-
-
-## Reading User Input
-csv_input_temp = StringIO(csv_userinput)
-user_input = pd.read_csv(csv_input_temp)
-
-## Extracting naming
-naming = user_input['Naming'][0]
-
-
-## Reading csv data
-csv_data_temp = StringIO(csv_userdata)
-user_data = pd.read_csv(csv_data_temp)
-
-
+##################################
 
 #### METADATA ####
 metadata = {
     'protocolName': 'Protocol BEST Library Build',
-    'apiLevel': '2.16',
+    'apiLevel': '2.20',
     'robotType': 'OT-2',    
     'author': 'Jonas Greve Lauritsen <jonas.lauritsen@sund.ku.dk>',
     'description': "Automated (BEST) library build of DNA samples (csv-adjusting version). Protocol generated at https://alberdilab-opentronsscripts.onrender.com"}
@@ -47,6 +44,11 @@ metadata = {
 
 #### Protocol script ####
 def run(protocol: protocol_api.ProtocolContext):
+
+    #### Loading Protocol Runtime Parameters ####
+    parsed_data = protocol.params.AdaptorConc.parse_as_csv()
+    user_data = pd.DataFrame(parsed_data[1:], columns = parsed_data[0])
+    Col_Number = ceil(len(user_data[0])/8)
 
 
     #### LABWARE SETUP ####
@@ -56,7 +58,7 @@ def run(protocol: protocol_api.ProtocolContext):
 
 
     ## Sample Plate (Placed in thermocycler).
-    Sample_plate = thermo_module.load_labware('biorad_96_wellplate_200ul_pcr') ## Same plate as sat up for the purification.
+    Sample_plate = thermo_module.load_labware('protocol.params.input_plate_type') ## Same plate as sat up for the purification.
 
 
     ## Tip racks (4x 10 µL)
@@ -73,21 +75,28 @@ def run(protocol: protocol_api.ProtocolContext):
     Ligation_Mix = cold_plate.wells_by_name()["A7"]
     Nick_Fill_In_Mix = cold_plate.wells_by_name()["A10"]
 
+    ## Load liquid
+    ER = protocol.define_liquid(name = "End Repair Mix", display_color = "#24DE1B")
+    Adap10 = protocol.define_liquid(name = "Adaptor 10 mM", display_color = "#E8BF16")
+    Adap20 = protocol.define_liquid(name = "Adaptor 10 mM", display_color = "#E8DE16")
+    LIG = protocol.define_liquid(name = "Ligation Mix", display_color = "#1B3CDE")
+    FI = protocol.define_liquid(name = "Fill In Mix", display_color = "#E80C0C")
+    
+    End_Repair_Mix.load_liquid(liquid = ER, volume = (5.85*Col_Number*1.1))
+    Adaptors_10mM.load_liquid(liquid = Adap10, volume = (1.5*Col_Number*1.1))
+    Adaptors_20mM.load_liquid(liquid = Adap20, volume = (1.5*Col_Number*1.1))
+    Ligation_Mix.load_liquid(liquid = LIG, volume = (6*Col_Number*1.2))
+    Nick_Fill_In_Mix.load_liquid(liquid = FI, volume = (7.5*Col_Number*1.1))
+
 
     #### PIPETTE SETUP ####
     m20 = protocol.load_instrument('p20_multi_gen2', mount = 'right', tip_racks = [tiprack_10_1,tiprack_10_2,tiprack_10_3])
     p10 = protocol.load_instrument('p10_single', mount = 'left', tip_racks = [tiprack_10_4])
 
-
     
-    #### User data setup ####
-    ## Column setup
-    Col_number = int(ceil(len(user_data)/8)) ## Scales number of columns in used based on csv data (rounding up for full columns used).
-    
-
     ## Ligation height setup - to limit viscous solution on the outside of the tips.
     Ligation_height = [1.75, 1.6, 1.45, 1.30, 1.15, 1, 0.85, 0.70, 0.55, 0.4, 0.25, 0.10] ## List with volume height for 12 transfers and descending.
-    pos = 12-Col_number
+    pos = 12-Col_Number
     Ligation_height = Ligation_height[pos:] ## Removes highest, unused heights.
 
 
@@ -112,7 +121,7 @@ def run(protocol: protocol_api.ProtocolContext):
     protocol.comment("STATUS: End Repair Transfer Step Begun")
 
     ## Transfering End Repair Mix
-    for i in range(Col_number):
+    for i in range(Col_Number):
         Column= i*8
         m20.transfer(volume = 5.85, source = End_Repair_Mix, dest = Sample_plate.wells()[Column], mix_before = (2,10), mix_after = (5,10), new_tip = 'always', trash = False)
 
@@ -135,7 +144,8 @@ def run(protocol: protocol_api.ProtocolContext):
     ## Transferring Adaptors. The adaptor concentration is chosen based on the csv input using conditional logic.
     for i in range(len(user_data)):
         ## User data for adaptor selection
-        WellPosition = user_data['Well Position'][i]
+        #SampleNumber;WellPosition;EXBarcode;SampleID;DNAconc;DNAul;Waterul;Adaptor;Notes
+        WellPosition = user_data['WellPosition'][i]
         AdaptorConc = int(user_data['Adaptor'][i])
         
         
@@ -159,7 +169,7 @@ def run(protocol: protocol_api.ProtocolContext):
     m20.flow_rate.dispense = 3 ## µL/s
 
     ## Ligation Pipetting
-    for i in range(Col_number):
+    for i in range(Col_Number):
         ## Aspiration, mixing, and dispersion. Extra delays to allow viscous liquids to aspirate/dispense. Slow movements to limit adhesion.
         Column= i * 8
         m20.pick_up_tip()
@@ -200,7 +210,7 @@ def run(protocol: protocol_api.ProtocolContext):
     m20.flow_rate.dispense = 7.6 ## µL/s
 
     ## Fill-in Reaction pipetting
-    for i in range(Col_number):
+    for i in range(Col_Number):
         Column= i*8
         m20.transfer(volume = 7.5, source = Nick_Fill_In_Mix, dest = Sample_plate.wells()[Column], mix_before=(2,10), mix_after=(5,10), new_tip='always', trash = False)
 

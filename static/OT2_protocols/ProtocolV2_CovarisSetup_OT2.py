@@ -17,6 +17,7 @@ from math import *
 def add_parameters(parameters):
 
     ## CSV file load
+    #SampleNumber;WellPosition;EXBarcode;SampleID;DNAconc;DNAul;Waterul;Adaptor;Notes
     parameters.add_csv_file(
         variable_name = "DNAnormalisingwells",
         display_name = "DNA Normalisation File",
@@ -79,8 +80,9 @@ def run(protocol: protocol_api.ProtocolContext):
     H2O_2 = Rack.wells_by_name()["A2"]
 
     ## Load liquid
-    dH2O = protocol.define_liquid(name = "Sterile, Demineralised Water",description = "Green colored water for demo", display_color = "#336CFF")
-    H2O.load_liquid(liquid = dH2O, volume = 2000)
+    dH2O = protocol.define_liquid(name = "Sterile, Demineralised Water", description = "Water for Normalisation", display_color = "#336CFF")
+    H2O_1.load_liquid(liquid = dH2O, volume = 2000)
+    H2O_2.load_liquid(liquid = dH2O, volume = 2000)
     
     ## Tip racks (2x 10 µL, 2x 200 µl)
     tiprack_10_1 = protocol.load_labware('opentrons_96_filtertiprack_10ul',4)

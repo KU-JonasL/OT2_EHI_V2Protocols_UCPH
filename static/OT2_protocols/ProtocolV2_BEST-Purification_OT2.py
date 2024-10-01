@@ -11,36 +11,95 @@
 from opentrons import protocol_api
 import pandas as pd
 from math import *
-from io import StringIO
 
-## User Input
-csv_userinput = 1# User Input here
+#### User Input Parameters ###
+def add_parameters(parameters):
 
-csv_userdata = 1# User Data here
+    ## Number of samples included.
+    parameters.add_int(
+        variable_name = "sample_count",
+        display_name = "Sample count",
+        description = "Number of input DNA samples.",
+        default = 96,
+        minimum = 8,
+        maximum = 96
+    )
 
+    ## Input Format
+    parameters.add_str(
+        variable_name="input_plate_type",
+        display_name="Well plate type",
+        choices=[{"display_name": "Covaris Plate", "value": "96afatubetpxplate_96_wellplate_200ul"},
+        {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
+        default="96afatubetpxplate_96_wellplate_200ul"
+    )
 
-## Reading User Input
-csv_input_temp = StringIO(csv_userinput)
-user_input = pd.read_csv(csv_input_temp)
+    ## Output plate format
+    parameters.add_str(
+    variable_name="output_plate_type",
+    display_name="Well plate type",
+    choices=[{"display_name": "PCR Strips (Aluminumblock)", "value": "PCRstrip"},
+        {"display_name": "LVL XSX 200 tubes (LVL plate)", "value": "LVLXSX200_wellplate_200ul"},
+        {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
+    default="biorad_96_wellplate_200ul_pcr",
+    )
 
-## Extracting naming
-naming = user_input['Naming'][0]
+    ## Off deck incubation
+    parameters.add_bool(
+        variable_name = "on_deck_incubation",
+        display_name = "On-Deck Incubation",
+        description = "If true, Script performs an On-deck Incubation.",
+        default = False
+    )
 
-## Sample number = No here, csv data take priority
-Sample_Number=int(user_input['SampleNumber'][0])
-Col_Number = int(ceil(Sample_Number/8))
+    ## On deck incubation time
+    parameters.add_int(
+        variable_name = "incubation_time",
+        display_name = "Beads Incubation Time (Mins)",
+        description = "Time for incubation of sample and bead mix (in minutes).",
+        default = 15,
+        minimum = 0,
+        maximum = 120
+    )
 
-## Outputformat
-Output_Format = user_input['OutputFormat'][0]
+    ## Ethanol volume for wash
+    parameters.add_float(
+        variable_name = "ethanol_volume",
+        display_name = "Ethanol Wash Volume (Per wash)",
+        description = "Number of input DNA samples.",
+        default = 160,
+        minimum = 100,
+        maximum = 180
+    )
 
+    ## Elution volume
+    parameters.add_float(
+        variable_name = "elution_volume",
+        display_name = "Elution Volume (Per sample)",
+        description = "Number of input DNA samples.",
+        default = 50,
+        minimum = 20,
+        maximum = 100
+    )
 
-## Reading csv data
-csv_data_temp = StringIO(csv_userdata)
-user_data = pd.read_csv(csv_data_temp)
+    # ## Elution On-Deck Incubation
+    # parameters.add_bool(
+    #     variable_name = "elution_incubation",
+    #     display_name = "On-Deck Elution Incubation",
+    #     description = "If True, the elution-sample mix is incubated on deck.",
+    #     default = False
+    # )
 
+    # ## Sustainability for high reuse of tip 
+    # parameters.add_bool(
+    #     variable_name = "sustainaility",
+    #     display_name = "Reduced number of Tips",
+    #     description = "reduced_tips",
+    #     default = False
+    # )
 
+##################################
 
-#############################
 
 #### Meta Data ####
 metadata = {
@@ -52,21 +111,20 @@ metadata = {
 
 #### Protocol Script ####
 def run(protocol: protocol_api.ProtocolContext):
+   
+    #### Loading Protocol Runtime Parameters ####
+    Col_Number = ceil(protocol.params.sample_count/8)
+   
+   
     #### LABWARE SETUP ####
     ## Smart labware
     magnet_module = protocol.load_module('magnetic module',4)
 
     ## Work plates
-    Library_plate = magnet_module.load_labware('biorad_96_wellplate_200ul_pcr') # Input plate
+    Library_plate = magnet_module.load_labware(protocol.params.input_plate_type,10) ## Input plate
     
     ## Output plate decide from user input. Standard format is PCR plate
-    if Output_Format == "PCRstrip":
-        Purified_plate = protocol.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul',10) # Output plate
-    elif Output_Format == "LVLSXS200":
-        Purified_plate = protocol.load_labware('LVLXSX200_wellplate_200ul',10) # Output plate
-    else:
-        Purified_plate = protocol.load_labware('biorad_96_wellplate_200ul_pcr',10) # Output plate
-
+    Purified_plate = protocol.load_labware(protocol.params.output_plate_type,10) # Output plate
 
     ## Purification reservoir and its content.
     Reservoir = protocol.load_labware('deepwellreservoir_12channel_21000ul',1) # Custom labware definition for the 22 mL reservoir
@@ -74,6 +132,12 @@ def run(protocol: protocol_api.ProtocolContext):
     Ethanol1 = Reservoir['A3']
     Ethanol2 = Reservoir['A4']
     Ebt = Reservoir['A6']
+
+    ## Load Liquid
+    
+
+
+    ## Waste
     Waste1 = Reservoir['A12'] # Beads supernatant waste
     Waste2 = Reservoir['A11'] # 1st ethanol wash waste
     Waste3 = Reservoir['A10'] # 2nd ethanol wash waste
