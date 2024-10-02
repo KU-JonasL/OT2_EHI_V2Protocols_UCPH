@@ -8,8 +8,7 @@
 ############################
 
 #### Package loading ####
-from opentrons import protocol_api
-import pandas as pd
+from opentrons import protocol_api # type: ignore
 from math import *
 
 #### User Input Parameters ###
@@ -44,12 +43,16 @@ def add_parameters(parameters):
     default="biorad_96_wellplate_200ul_pcr",
     )
 
+
+
+
+
     ## Off deck incubation
     parameters.add_bool(
         variable_name = "on_deck_incubation",
         display_name = "On-Deck Incubation",
         description = "If true, Script performs an On-deck Incubation.",
-        default = False
+        default = True
     )
 
     ## On deck incubation time
@@ -57,10 +60,14 @@ def add_parameters(parameters):
         variable_name = "incubation_time",
         display_name = "Beads Incubation Time (Mins)",
         description = "Time for incubation of sample and bead mix (in minutes).",
-        default = 15,
+        default = 5,
         minimum = 0,
-        maximum = 120
+        maximum = 60
     )
+
+
+
+
 
     ## Ethanol volume for wash
     parameters.add_float(
@@ -114,7 +121,10 @@ def run(protocol: protocol_api.ProtocolContext):
    
     #### Loading Protocol Runtime Parameters ####
     Col_Number = ceil(protocol.params.sample_count/8)
-   
+    On_Deck_Incubation = protocol.params.on_deck_incubation
+    Incubation_Time = protocol.params.incubation_time
+    Ethanol_Volume = protocol.params.ethanol_volume
+    Elution_Volume = protocol.params.elution_volume
    
     #### LABWARE SETUP ####
     ## Smart labware
@@ -170,6 +180,8 @@ def run(protocol: protocol_api.ProtocolContext):
     pos = 12-Col_Number
     Ethanol_Height = Ethanol_Height[pos:] # Removes highest, unused heights.
 
+
+
     ############################### Lab Work Protocol ###############################
     ## The instructions for the robot to execute.
     protocol.comment("STATUS: Purification of BEST Library Build Begun")
@@ -195,9 +207,14 @@ def run(protocol: protocol_api.ProtocolContext):
         m200.move_to(location = Library_plate.wells()[Column].top(), speed = 40)
         m200.return_tip()
 
-    ## 5 minutes incubation at room temperature
-    protocol.comment("STATUS: Beginning Beads Incubation")
-    protocol.delay(minutes = 5)
+    ## Incubation at room temperature with set temperature
+    
+    if On_Deck_Incubation == True:
+        protocol.comment("STATUS: On-Deck Beads Incubation begun. Plate is incubating for "+ str(Incubation_Time) +"mins")
+        protocol.delay(minutes = Incubation_Time)
+    elif On_Deck_Incubation == False:
+        protocol.pause("ACTION: Seal the Library plate. Spin it down. Run the incunation as intended. You noted "+ str(Incubation_Time) +"mins as you incubation time")
+
 
     ## Engaging magnetic module. 5 mins wait for beads attraction
     magnet_module.engage(height_from_base = 10)

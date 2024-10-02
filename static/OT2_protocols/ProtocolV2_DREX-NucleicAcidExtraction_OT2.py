@@ -3,14 +3,12 @@
 #################################
 
 ## Author Jonas Greve Lauritsen
-## Automatic preparation of covaris plates based on csv input
 ## Protocol for the combined extraction of DNA and RNA. No nuclease step is active here.
 
 ############################
 
-
 #### Package loading ####
-from opentrons import protocol_api, types
+from opentrons import protocol_api, types # type: ignore
 from math import *
 
 
