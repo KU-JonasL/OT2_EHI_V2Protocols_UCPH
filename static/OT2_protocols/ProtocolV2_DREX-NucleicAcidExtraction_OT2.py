@@ -120,7 +120,7 @@ def run(protocol: protocol_api.ProtocolContext):
     Extraction_plate = magnet_module.load_labware('thermoscientificnunc_96_wellplate_1300ul') ## Input plate with sample
     
     ## Selecting output format - default is a PCR wellplate
-    Elution_plate = protocol.load_labware('protocol.params.plate_type',10) ## Output plate; selected via runtime parameter
+    Elution_plate = protocol.load_labware(protocol.params.plate_type,10) ## Output plate; selected via runtime parameter
    
     ## Deepwell reservoir & Liquid Inputs
     ## Liquid labeling not added.

@@ -43,10 +43,6 @@ def add_parameters(parameters):
     default="biorad_96_wellplate_200ul_pcr",
     )
 
-
-
-
-
     ## Off deck incubation
     parameters.add_bool(
         variable_name = "on_deck_incubation",
@@ -64,10 +60,6 @@ def add_parameters(parameters):
         minimum = 0,
         maximum = 60
     )
-
-
-
-
 
     ## Ethanol volume for wash
     parameters.add_float(
@@ -111,7 +103,7 @@ def add_parameters(parameters):
 #### Meta Data ####
 metadata = {
     'protocolName': 'Protocol BEST Library Purification',
-    'apiLevel': '2.16',
+    'apiLevel': '2.20',
     'robotType': 'OT-2',    
     'author': 'Jonas Lauritsen <jonas.lauritsen@sund.ku.dk>',
     'description': "Automated purification of a BEST library build. Protocol generated at https://alberdilab-opentronsscripts.onrender.com"}
