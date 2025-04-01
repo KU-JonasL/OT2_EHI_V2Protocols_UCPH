@@ -245,7 +245,7 @@ def add_parameters(parameters):
 #### Meta Data ####
 metadata = {
     'protocolName': 'Protocol Automated Covaris Setup',
-    'apiLevel': '2.20',
+    'apiLevel': '2.22',
     'robotType': 'OT-2',    
     'author': 'Jonas Lauritsen <jonas.lauritsen@sund.ku.dk>',
     'description': "Covaris automated plate prepper with user CSV input. Protocol generated at https://alberdilab-opentronsscripts.onrender.com"}

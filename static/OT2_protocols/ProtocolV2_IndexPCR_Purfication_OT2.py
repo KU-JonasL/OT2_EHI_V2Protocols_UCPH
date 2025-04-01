@@ -19,62 +19,107 @@
 
 #### Package loading ####
 from opentrons import protocol_api
-import pandas as pd
 from math import *
-from io import StringIO
 
 ## User Input
+def add_parameters(parameters):
 
+    ## Number of samples included.
+    parameters.add_int(
+        variable_name = "sample_count",
+        display_name = "Sample count",
+        description = "Number of input DNA samples.",
+        default = 96,
+        minimum = 8,
+        maximum = 96
+    )
 
-csv_userinput = 1# User Input here
+    ## Input Format
+    parameters.add_str(
+        variable_name="input_plate_type",
+        display_name="Well plate type",
+        choices=[{"display_name": "PCRstrip", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"},
+        {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
+        default="96afatubetpxplate_96_wellplate_200ul"
+    )
 
-csv_userdata = 1# User Data here
+    ## Output plate format
+    parameters.add_str(
+    variable_name="output_plate_type",
+    display_name="Well plate type",
+    choices=[{"display_name": "PCR Strips (Aluminumblock)", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"},
+        {"display_name": "LVL XSX 200 tubes (LVL plate)", "value": "LVLXSX200_wellplate_200ul"},
+        {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
+    default="biorad_96_wellplate_200ul_pcr",
+    )
 
+        ## Off deck incubation
+    parameters.add_bool(
+        variable_name = "on_deck_incubation",
+        display_name = "On-Deck Incubation",
+        description = "If true, Script performs an On-deck Incubation.",
+        default = True
+    )
 
+    ## On deck incubation time
+    parameters.add_int(
+        variable_name = "incubation_time",
+        display_name = "Beads Incubation Time (Mins)",
+        description = "Time for incubation of sample and bead mix (in minutes).",
+        default = 5,
+        minimum = 0,
+        maximum = 60
+    )
 
-## Reading User Input
-csv_input_temp = StringIO(csv_userinput)
-user_input = pd.read_csv(csv_input_temp)
+    ## Ethanol volume for wash
+    parameters.add_float(
+        variable_name = "ethanol_volume",
+        display_name = "Ethanol Wash Volume (Per wash)",
+        description = "Number of input DNA samples.",
+        default = 160,
+        minimum = 100,
+        maximum = 180
+    )
 
-## Extracting naming
-naming = user_input['Naming'][0]
-
-## Sample number = No here, csv data take priority
-Sample_Number=int(user_input['SampleNumber'][0])
-Col_Number = int(ceil(Sample_Number/8))
-
-## Inputformat & Outputformat = No here
-Input_Format = user_input['InputFormat'][0]
-Output_Format = user_input['OutputFormat'][0]
+    ## Elution volume
+    parameters.add_float(
+        variable_name = "elution_volume",
+        display_name = "Elution Volume (Per sample)",
+        description = "Number of input DNA samples.",
+        default = 50,
+        minimum = 20,
+        maximum = 100
+    )
 
 
 
 #### Meta Data ####
 metadata = {
     'protocolName': 'Purification of Index PCR product Build',
-    'apiLevel': '2.16',
+    'apiLevel': '2.22',
     'robotType': 'OT-2',    
     'author': 'Jonas Lauritsen <jonas.lauritsen@sund.ku.dk>',
-    'description': "Automated purification of Index PCR product builds. Protocol generated at https://alberdilab-opentronsscripts.onrender.com"}
+    'description': "Automated purification of Index PCR product. Protocol generated at https://alberdilab-opentronsscripts.onrender.com"}
 
 #### Protocol Script ####
 def run(protocol: protocol_api.ProtocolContext):
+
+    
+    ## Sample number = No here, csv data take priority
+    Col_Number = int(ceil(protocol.params.sample_count/8))
+
+
     #### LABWARE SETUP ####
     ## Placement of smart and dumb labware
     magnet_module = protocol.load_module('magnetic module',4)
 
     ## Work plates
-    if Input_Format == "PCRstrip":
-        Sample_Plate = magnet_module.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul') # Input plate
-    else:
-        Sample_Plate = magnet_module.load_labware('biorad_96_wellplate_200ul_pcr') # Input plate
+    Sample_Plate = magnet_module.load_labware(protocol.params.input_plate_type)
+    Purified_plate = protocol.load_labware(protocol.params.output_plate_type,10)
 
-    if Output_Format == "PCRstrip":
-        Purified_plate = protocol.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul',10) # Output plate
-    elif Output_Format == "LVLSXS200":
-        Purified_plate = protocol.load_labware('LVLXSX200_wellplate_200ul',10) # Output plate
-    else:
-        Purified_plate = protocol.load_labware('biorad_96_wellplate_200ul_pcr',10) # Output plate
+    ## Work volumes
+    Ethanol_Volume = protocol.params.ethanol_volume
+    Elution_Volume = protocol.params.elution_volume
 
 
     ## Purification materials
@@ -175,8 +220,8 @@ def run(protocol: protocol_api.ProtocolContext):
         for i in range(Col_Number):
             Column = i*8 # Gives the index for the first well in the column
             m200.mix(repetitions = 2, volume = 200, location = Ethanol.bottom(z = Ethanol_Height[i]))
-            m200.aspirate(volume = 170, location = Ethanol.bottom(z = Ethanol_Height[i]),rate = 0.7) 
-            m200.dispense(volume = 170, location = Sample_Plate.wells()[Column].top(z = 1.2), rate = 1) # Dispenses ethanol from 1.2 mm above the top of the well.
+            m200.aspirate(volume = Ethanol_Volume, location = Ethanol.bottom(z = Ethanol_Height[i]),rate = 0.7) 
+            m200.dispense(volume = Ethanol_Volume, location = Sample_Plate.wells()[Column].top(z = 1.2), rate = 1) # Dispenses ethanol from 1.2 mm above the top of the well.
         m200.blow_out(location = Waste) # Blow out to remove potential droplets before returning.
         m200.return_tip()
 
@@ -184,7 +229,7 @@ def run(protocol: protocol_api.ProtocolContext):
         for i in range(Col_Number):
             Column = i*8 # Gives the index for the first well in the column
             m200.pick_up_tip(Ethanol_Tips.wells()[Column])
-            m200.aspirate(volume = 200, location = Sample_Plate.wells()[Column].bottom(z = 0.35), rate = 0.2) #
+            m200.aspirate(volume = Ethanol_Volume, location = Sample_Plate.wells()[Column].bottom(z = 0.35), rate = 0.2) #
             m200.move_to(location = Sample_Plate.wells()[Column].top(z=2), speed =100)
             m200.dispense(volume = 200, location = Waste.top(), rate = 1)
             m200.air_gap(70, 20) #Take in excess/outside droplets to limit cross-contamination.
@@ -213,7 +258,7 @@ def run(protocol: protocol_api.ProtocolContext):
     for i in range(Col_Number):
         Column = i*8 #Gives the index for the first well in the column
         m200.pick_up_tip()
-        m200.transfer(volume = 35, source = Ebt, dest = Sample_Plate.wells()[Column], trash = False , new_tip = 'never', mix_after = (5,20), rate = 1)
+        m200.transfer(volume = Elution_Volume, source = Ebt, dest = Sample_Plate.wells()[Column], trash = False , new_tip = 'never', mix_after = (5,20), rate = 1)
         protocol.delay(5)
         m200.move_to(location = Sample_Plate.wells()[Column].top(), speed = 100)
         m200.return_tip()
@@ -230,7 +275,7 @@ def run(protocol: protocol_api.ProtocolContext):
     protocol.comment("STATUS: Transfer of Index PCR product")
     for i in range(Col_Number):
         Column = i*8 #Gives the index for the first well in the column
-        m200.transfer(volume = 50, source = Sample_Plate.wells()[Column].bottom(z = 0.2), dest = Purified_plate.wells()[Column], new_tip = 'always', trash = False, rate = 0.4)
+        m200.transfer(volume = Elution_Volume, source = Sample_Plate.wells()[Column].bottom(z = 0.2), dest = Purified_plate.wells()[Column], new_tip = 'always', trash = False, rate = 0.4)
 
 
     ## Deactivating magnet module

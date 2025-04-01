@@ -8,38 +8,49 @@
 
 #### Package loading ####
 from opentrons import protocol_api
-import pandas as pd
 from math import *
-from io import StringIO
-
-## User Input
-csv_userinput = 1# User Input here
-
-csv_userdata = 1# User Data here
 
 
 
-## Reading User Input
-csv_input_temp = StringIO(csv_userinput)
-user_input = pd.read_csv(csv_input_temp)
 
-## Extracting naming
-naming = user_input['Naming'][0]
 
-## Sample number = No here, csv data take priority
-Sample_Number=int(user_input['SampleNumber'][0])
-Col_Number = int(ceil(Sample_Number/8))
 
-## Inputformat & Outputformat = No here
-Input_Format = user_input['InputFormat'][0]
-Output_Format = user_input['OutputFormat'][0]
+def add_parameters(parameters):
 
+    ## Number of samples included.
+    parameters.add_int(
+        variable_name = "sample_count",
+        display_name = "Sample count",
+        description = "Number of input DNA samples.",
+        default = 96,
+        minimum = 8,
+        maximum = 96
+    )
+
+    ## Input Format
+    parameters.add_str(
+        variable_name="input_plate_type",
+        display_name="Well plate type",
+        choices=[{"display_name": "PCRstrip", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"},
+        {"display_name": "LVLSXS200", "value": "LVLXSX200_wellplate_200ul"},
+        {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
+        default="biorad_96_wellplate_200ul_pcr"
+    )
+
+    ## Output plate format
+    parameters.add_str(
+    variable_name="output_plate_type",
+    display_name="Well plate type",
+    choices=[{"display_name": "PCR Strips (Aluminumblock)", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"},
+        {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
+    default="opentrons_96_aluminumblock_generic_pcr_strip_200ul",
+    )
 
 
 #### Meta Data ####
 metadata = {
     'protocolName': 'Protocol Index PCR Setup',
-    'apiLevel': '2.16',
+    'apiLevel': '2.22',
     'robotType': 'OT-2',    
     'author': 'Jonas Lauritsen <jonas.lauritsen@sund.ku.dk>',
     'description': "Transfer for Index PCR: Master Mix, Primers Mix, and Sample-library material. Protocol generated at https://alberdilab-opentronsscripts.onrender.com"}
@@ -47,25 +58,21 @@ metadata = {
 #### Protocol Script ####
 def run(protocol: protocol_api.ProtocolContext):
 
+
+    #### Loading Protocol Runtime Parameters ####
+    Col_Number = ceil(protocol.params.sample_count/8)
+
+
     #### LABWARE SETUP ####
-    ## Selecting input format
-    if Input_Format == "PCRstrip":
-        Sample_Plate = protocol.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul',1)
-    elif Input_Format == "LVLSXS200":
-        Sample_Plate = protocol.load_labware('LVLXSX200_wellplate_200ul',1)
-    else:
-        Sample_Plate = protocol.load_labware('biorad_96_wellplate_200ul_pcr',1)
+    ## Samples and sample format (Dilutions done prior)
+    Temp_Module_Sample = protocol.load_module('temperature module', 7)
+    Sample_Plate = Temp_Module_Sample.load_labware(protocol.params.input_plate_type) ## Generic PCR strip should approximate our types. Low volumes could be problematic.
+    Sample_Height = 1.0
 
 
-    ## Index PCR plate - currently onlt piped to strips
-    Temp_Module_PCR = protocol.load_module('temperature module',6)
-    iPCR_Plate = Temp_Module_PCR.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul') ## PCR plate
-    
-    ## For future setup, if sample format for PCR is universal.
-    # if Output_Format == "PCRstrip":
-    #     iPCR_Plate = Temp_Module_PCR.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul') ## PCR plate
-    # else:
-    #     iPCR_Plate = Temp_Module_PCR.load_labware('biorad_96_wellplate_200ul_pcr')
+    ## PCR PCR plate
+    Temp_Module_PCR = protocol.load_module('temperature module', 6)
+    iPCR_plate = Temp_Module_PCR.load_labware(protocol.params.output_plate_type) ## OBS Generic plate here no PCR strip is uesd here
 
 
     ## Primer plate (each well contain both forward and reverse primers)
@@ -117,7 +124,7 @@ def run(protocol: protocol_api.ProtocolContext):
             MMpos = "A3"
             m200.transfer(volume = 30, source = MasterMix.wells_by_name()["A2"], dest =MasterMix.wells_by_name()[MMpos], rate = 0.8, new_tip = 'never') ## Transfer leftover- mastermix
         
-        m200.transfer(volume = 38, source = MasterMix.wells_by_name()[MMpos], dest = iPCR_Plate.wells()[Col].bottom(z = 1.2), mix_before = (2,30), rate = 0.6, blow_out = False, blowout_location = 'source well', new_tip = 'never')
+        m200.transfer(volume = 38, source = MasterMix.wells_by_name()[MMpos], dest = iPCR_plate.wells()[Col].bottom(z = 1.2), mix_before = (2,30), rate = 0.6, blow_out = False, blowout_location = 'source well', new_tip = 'never')
         ## Deep well plates we have less deep bottoms.
     m200.drop_tip()
 
@@ -126,14 +133,14 @@ def run(protocol: protocol_api.ProtocolContext):
     protocol.comment("STATUS: Transfering Index PCR primer.")
     for i in range(Col_Number):
         Col = i*8
-        m20.transfer(volume = 2, source = Primer_plate.wells()[Col], dest = iPCR_Plate.wells()[Col].bottom(z = 1.2), mix_after = (2,5), rate = 0.6, new_tip = 'Always', trash = False)
+        m20.transfer(volume = 2, source = Primer_plate.wells()[Col], dest = iPCR_plate.wells()[Col].bottom(z = 1.2), mix_after = (2,5), rate = 0.6, new_tip = 'Always', trash = False)
 
 
     #### Transfer diluted sample-library to index PCR strips - obs for
     protocol.comment("STATUS: Transfering Diluted Samples to Index PCR strips")
     for i in range (Col_Number):
         Col = i*8
-        m20.transfer(volume = 10, source = Sample_Plate.wells()[Col].bottom(z = 1.2), dest = iPCR_Plate.wells()[Col].bottom(z = 1.2), mix_before = (2,5), mix_after = (2,10), rate = 0.6, new_tip = 'Always', trash = False)
+        m20.transfer(volume = 10, source = Sample_Plate.wells()[Col].bottom(z = 1.2), dest = iPCR_plate.wells()[Col].bottom(z = 1.2), mix_before = (2,5), mix_after = (2,10), rate = 0.6, new_tip = 'Always', trash = False)
 
 
     ## Protocol complete

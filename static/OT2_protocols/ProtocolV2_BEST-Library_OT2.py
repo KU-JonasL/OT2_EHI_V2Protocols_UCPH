@@ -7,8 +7,9 @@
 
 #### Package loading ####
 from opentrons import protocol_api
-import pandas as pd
 from math import *
+import pandas as pd
+
 
 #### User Input Parameters ###
 def add_parameters(parameters):
@@ -36,7 +37,7 @@ def add_parameters(parameters):
 #### METADATA ####
 metadata = {
     'protocolName': 'Protocol BEST Library Build',
-    'apiLevel': '2.20',
+    'apiLevel': '2.22',
     'robotType': 'OT-2',    
     'author': 'Jonas Greve Lauritsen <jonas.lauritsen@sund.ku.dk>',
     'description': "Automated (BEST) library build of DNA samples (csv-adjusting version). Protocol generated at https://alberdilab-opentronsscripts.onrender.com"}

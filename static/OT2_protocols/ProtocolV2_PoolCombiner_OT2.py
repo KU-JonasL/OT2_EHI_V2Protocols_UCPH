@@ -15,7 +15,7 @@ from opentrons import protocol_api
 #### Meta Data ####
 metadata = {
     'protocolName': 'Protocol Automated 4x96 Pool Combiner ',
-    'apiLevel': '2.16',
+    'apiLevel': '2.22',
     'robotType': 'OT-2',    
     'author': 'Jonas Lauritsen <jonas.lauritsen@sund.ku.dk> & Martí Dalmases',
     'description': "Automated Combiner for 4x 96 pool preparation. Protocol generated at https://alberdilab-opentronsscripts.onrender.com"}

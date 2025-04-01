@@ -19,26 +19,52 @@ csv_userinput = 1# User Input here
 csv_userdata = 1# User Data here
 
 
+
+
+def add_parameters(parameters):
+
+    ## Number of samples included.
+    parameters.add_int(
+        variable_name = "sample_count",
+        display_name = "Sample count",
+        description = "Number of input DNA samples.",
+        default = 96,
+        minimum = 8,
+        maximum = 96
+    )
+
+    ## Input Format
+    parameters.add_str(
+        variable_name="input_plate_type",
+        display_name="Well plate type",
+        choices=[{"display_name": "PCRstrip", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"},
+        {"display_name": "LVLSXS200", "value": "LVLXSX200_wellplate_200ul"},
+        {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
+        default="biorad_96_wellplate_200ul_pcr"
+    )
+
+    ## Output plate format
+    parameters.add_str(
+    variable_name="output_plate_type",
+    display_name="Well plate type",
+    choices=[{"display_name": "qPCR Strips (Aluminumblock)", "value": "bioplastics_96_aluminumblock_100ul"},
+        {"display_name": "PCR Plate", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"}],
+    default="bioplastics_96_aluminumblock_100ul",
+    )
+
+
 ## Reading User Input
-csv_input_temp = StringIO(csv_userinput)
-user_input = pd.read_csv(csv_input_temp)
 
-## Extracting naming
-naming = user_input['Naming'][0]
 
-## Sample number = No here, csv data take priority
-Sample_Number=user_input['SampleNumber'][0]
-Col_Number = int(ceil(Sample_Number/8))
 
 ## Inputformat & Outputformat Output placements not incorporated
-Input_Format = user_input['InputFormat'][0]
-Output_Format = user_input['OutputFormat'][0]
+
 
 
 #### Meta Data ####
 metadata = {
     'protocolName': 'Protocol qPCR Setup',
-    'apiLevel': '2.16',
+    'apiLevel': '2.22',
     'robotType': 'OT-2',    
     'author': 'Jonas Lauritsen <jonas.lauritsen@sund.ku.dk>',
     'description': "Automated transfer for Master Mix + DNA Libraries for qPCR. Protocol generated at https://alberdilab-opentronsscripts.onrender.com"}
@@ -46,28 +72,19 @@ metadata = {
 #### Protocol Script ####
 def run(protocol: protocol_api.ProtocolContext):
 
+    #### Loading Protocol Runtime Parameters ####
+    Col_Number = ceil(protocol.params.sample_count/8)
+
+
     #### LABWARE SETUP ####
     ## Samples and sample format (Dilutions done prior)
     Temp_Module_Sample = protocol.load_module('temperature module', 7)
-    if Input_Format == "PCRstrip":
-        Sample_Plate = Temp_Module_Sample.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul') ## Generic PCR strip should approximate our types. Low volumes could be problematic.
-        Sample_Height = 1.0
-
-    elif Input_Format == "LVLSXS200":
-        Sample_Plate = Temp_Module_Sample.load_labware("LVLXSX200_wellplate_200ul")
-
-    else:
-        Sample_Plate = Temp_Module_Sample.load_labware('biorad_96_wellplate_200ul_pcr') ## Biorad plate is the closest to our plate type.
-        Sample_Height = 1.0
+    Sample_Plate = Temp_Module_Sample.load_labware(protocol.params.input_plate_type) ## Generic PCR strip should approximate our types. Low volumes could be problematic.
+    Sample_Height = 1.0
 
     ## qPCR PCR plate
     Temp_Module_qPCR = protocol.load_module('temperature module', 6)
-    if Output_Format == "PCRplate":
-        qPCR_strips = Temp_Module_qPCR.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul') ## OBS Generic plate here no qPCR strip is uesd here
-    
-    else: ## Default to qPCR stripsCurrently no qPCR plate is used.
-        qPCR_strips = Temp_Module_qPCR.load_labware('bioplastics_96_aluminumblock_100ul') ## qPCR strips are shorter than the PCR tubes we use. Do we have this?
-        
+    qPCR_strips = Temp_Module_qPCR.load_labware(protocol.params.output_plate_type) ## OBS Generic plate here no qPCR strip is uesd here
 
     ## Master Mix
     MasterMix = protocol.load_labware('opentrons_96_aluminumblock_generic_pcr_strip_200ul', 4) ## MasterMix to be prepared in advance and placed in this column.

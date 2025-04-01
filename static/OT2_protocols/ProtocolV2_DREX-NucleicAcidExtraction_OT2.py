@@ -95,7 +95,7 @@ def add_parameters(parameters):
 #### Meta Data ####
 metadata = {
     'protocolName': 'Protocol Nucleic Acid Extraction',
-    'apiLevel': '2.20',
+    'apiLevel': '2.22',
     'robotType': 'OT-2',    
     'author': 'Jonas Lauritsen <jonas.lauritsen@sund.ku.dk>',
     'description': "EHEX Automated extraction of nucleic acids from samples. Protocol includes runtime parameters to customise the user experience."}
