@@ -37,7 +37,7 @@ def add_parameters(parameters):
     parameters.add_str(
     variable_name="output_plate_type",
     display_name="Well plate type",
-    choices=[{"display_name": "PCR Strips (Aluminumblock)", "value": "PCRstrip"},
+    choices=[{"display_name": "PCR Strips (Aluminumblock)", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"},
         {"display_name": "LVL XSX 200 tubes (LVL plate)", "value": "LVLXSX200_wellplate_200ul"},
         {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
     default="biorad_96_wellplate_200ul_pcr",
@@ -123,7 +123,7 @@ def run(protocol: protocol_api.ProtocolContext):
     magnet_module = protocol.load_module('magnetic module',4)
 
     ## Work plates
-    Library_plate = magnet_module.load_labware(protocol.params.input_plate_type,10) ## Input plate
+    Library_plate = magnet_module.load_labware(protocol.params.input_plate_type) ## Input plate
     
     ## Output plate decide from user input. Standard format is PCR plate
     Purified_plate = protocol.load_labware(protocol.params.output_plate_type,10) # Output plate
@@ -253,7 +253,7 @@ def run(protocol: protocol_api.ProtocolContext):
             m200.pick_up_tip(Ethanol_Tips.wells()[Column])
             m200.aspirate(volume = Ethanol_Volume, location = Library_plate.wells()[Column].bottom(z = 1.2), rate = 0.5)
             m200.move_to(location = Library_plate.wells()[Column].top(z=2), speed =100)
-            m200.dispense(volume = 200, location = Waste.top(), rate = 1)
+            m200.dispense(volume = Ethanol_Volume, location = Waste.top(), rate = 1)
             m200.air_gap(70, 20) #Take in excess/outside droplets to limit cross-contamination.
             m200.return_tip()
 

@@ -40,7 +40,7 @@ def add_parameters(parameters):
         display_name="Well plate type",
         choices=[{"display_name": "PCRstrip", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"},
         {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
-        default="96afatubetpxplate_96_wellplate_200ul"
+        default="biorad_96_wellplate_200ul_pcr"
     )
 
     ## Output plate format
@@ -231,7 +231,7 @@ def run(protocol: protocol_api.ProtocolContext):
             m200.pick_up_tip(Ethanol_Tips.wells()[Column])
             m200.aspirate(volume = Ethanol_Volume, location = Sample_Plate.wells()[Column].bottom(z = 0.35), rate = 0.2) #
             m200.move_to(location = Sample_Plate.wells()[Column].top(z=2), speed =100)
-            m200.dispense(volume = 200, location = Waste.top(), rate = 1)
+            m200.dispense(volume = Ethanol_Volume, location = Waste.top(), rate = 1)
             m200.air_gap(70, 20) #Take in excess/outside droplets to limit cross-contamination.
             m200.return_tip()
 
@@ -239,7 +239,7 @@ def run(protocol: protocol_api.ProtocolContext):
     for i in range(Col_Number):
         Column = i*8
         m200.pick_up_tip()
-        m200.aspirate(volume = 10, location = Sample_Plate.wells()[Column].bottom(z = -0), rate = 0.6)
+        m200.aspirate(volume = 10, location = Sample_Plate.wells()[Column].bottom(z = 0.1), rate = 0.6)
         m200.return_tip()
         # z = 0 is at the bottom of the labware - here we use a well plate that is slightly deeper than the specified labaware, but be extra careful if changed.
 

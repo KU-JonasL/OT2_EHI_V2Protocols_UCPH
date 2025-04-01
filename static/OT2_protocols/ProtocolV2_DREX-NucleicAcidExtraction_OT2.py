@@ -19,7 +19,7 @@ def add_parameters(parameters):
     parameters.add_str(
     variable_name="plate_type",
     display_name="Well plate type",
-    choices=[{"display_name": "PCR Strips (Aluminumblock)", "value": "PCRstrip"},
+    choices=[{"display_name": "PCR Strips (Aluminumblock)", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"},
         {"display_name": "LVL XSX 200 tubes (LVL plate)", "value": "LVLXSX200_wellplate_200ul"},
         {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
     default="biorad_96_wellplate_200ul_pcr",

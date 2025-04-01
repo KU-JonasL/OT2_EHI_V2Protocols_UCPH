@@ -12,6 +12,27 @@ from opentrons import protocol_api
 
 ##################################
 
+def add_parameters(parameters):
+
+    ## CSV file load
+    #SampleNumber;WellPosition;EXBarcode;SampleID;DNAconc;DNAul;Waterul;Adaptor;Notes
+    parameters.add_csv_file(
+        variable_name = "AdaptorConc",
+        display_name = "Adaptor Conc Input File",
+        description = "csv file with adaptor concentration information"
+    )
+
+    ## Input Format
+    parameters.add_str(
+        variable_name="input_plate_type",
+        display_name="Well plate type",
+        choices=[{"display_name": "Covaris Plate", "value": "96afatubetpxplate_96_wellplate_200ul"},
+        {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
+        default="96afatubetpxplate_96_wellplate_200ul"
+    )
+
+
+
 #### Meta Data ####
 metadata = {
     'protocolName': 'Protocol Automated 4x96 Pool Combiner ',

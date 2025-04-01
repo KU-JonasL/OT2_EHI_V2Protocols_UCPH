@@ -65,8 +65,7 @@ def run(protocol: protocol_api.ProtocolContext):
 
     #### LABWARE SETUP ####
     ## Samples and sample format (Dilutions done prior)
-    Temp_Module_Sample = protocol.load_module('temperature module', 7)
-    Sample_Plate = Temp_Module_Sample.load_labware(protocol.params.input_plate_type) ## Generic PCR strip should approximate our types. Low volumes could be problematic.
+    Sample_Plate = protocol.load_labware(protocol.params.input_plate_type,1) ## Generic PCR strip should approximate our types. Low volumes could be problematic.
     Sample_Height = 1.0
 
 
