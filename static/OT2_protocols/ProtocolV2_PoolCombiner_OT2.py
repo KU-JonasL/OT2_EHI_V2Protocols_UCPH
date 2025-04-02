@@ -36,9 +36,9 @@ def add_parameters(parameters):
     parameters.add_str(
         variable_name="input_plate_type",
         display_name="Well plate type",
-        choices=[{"display_name": "Covaris Plate", "value": "96afatubetpxplate_96_wellplate_200ul"},
+        choices=[{"display_name": "PCR Strips", "value": "opentrons_96_aluminumblock_generic_pcr_strip_200ul"},
         {"display_name": "PCR Plate", "value": "biorad_96_wellplate_200ul_pcr"}],
-        default="96afatubetpxplate_96_wellplate_200ul"
+        default="opentrons_96_aluminumblock_generic_pcr_strip_200ul"
     )
 
     ## Pooltube Format
@@ -99,33 +99,52 @@ def run(protocol: protocol_api.ProtocolContext):
 
     ############################### Lab Work Protocol ###############################
     ## The instructions for the robot to execute.
-
     protocol.comment("STATUS: Covaris Setup Begun")
     protocol.set_rail_lights(True)
 
-
-
     for i in range(len(user_data)):
 
+        ## Load CSV data
         WellPosition = user_data['WellPosition'][i]
+        SampleVolume = user_data['SampleVolume'][i]
         
+        ## Load Dilution dater
         if user_data['Dilution'][i] is bool:
             DilutionFactor = user_data['Dilution'][i]
             DilutionVolume = 1
             H2O_Input = 1*(DilutionFactor-1)
 
 
-
-
-        if DilutionFactor > 0:
+        ## For diluted samples
+        if user_data['Dilution'][i] > 0:
+            ## Select next available dultion tube.
             DilutionWell = DilutionWell + 1 
-            p10.pick_up_tip()
-            p10.transfer(volume = H2O_Input, source = DilutionWater, dest = DilutionPlate, new_tip = 'always', trash = False)
-            p10
             
+            
+            ## Prepare Dilution. Transfer first dilution water, then sample material to first available pcr tube.
+            p10.pick_up_tip()
+            p10.transfer(volume = H2O_Input, source = DilutionWater, dest = DilutionPlate.wells_by_name()[WellPosition], new_tip = 'never', trash = False)
+            p10.transfer(volume = DilutionVolume, source = SamplePlate.wells_by_name()[WellPosition], dest = DilutionPlate.wells_by_name()[WellPosition], new_tip = 'never', trash = False)
+            
+            ## Mix diluted sample     
+            p10.mix(repetitions = 3, volume = (DilutionVolume+H2O_Input)*0.8, location = DilutionPlate.wells_by_name()[WellPosition])
+            
+            ## Transfer diluted sampe
+            p10.transfer(volume = SampleVolume, source = DilutionPlate.wells_by_name()[WellPosition], dest = PoolTube, new_tip = 'never', trash = False)
             p10.return_tip
 
+        ## For non diluted samples
+        else:
+            ## Transfer volume for more than 10 µL pooling
+            if SampleVolume > 10:
+                ## Transfer to pool
+                p50.transfer(volume = SampleVolume, source = SamplePlate.wells_by_name()[WellPosition], dest = PoolTube, new_tip = 'always', trash = False )
+
+            ## Transfer volume for 10 or less µL pooling    
+            if SampleVolume <= 10:
+                p10.transfer(volume = SampleVolume, source = SamplePlate.wells_by_name()[WellPosition], dest = PoolTube, new_tip = 'always', trash = False)
 
 
+    ## Protocol end
     protocol.set_rail_lights(False)
     protocol.comment("STATUS: Protocol Completed.")
